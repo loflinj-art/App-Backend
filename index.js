@@ -25,6 +25,7 @@ socketIO.on("connection", (socket) => {
 
   socket.on("getAllGroups", () => {
     socket.emit("groupList", chatgroups);
+    console.log("sent all groups");
   });
 
   socket.on("createNewGroup", (currentGroupName) => {
@@ -40,6 +41,7 @@ socketIO.on("connection", (socket) => {
   socket.on("findGroup", (id) => {
     const filteredGroup = chatgroups.filter((item) => item.id === id);
     socket.emit("foundGroup", filteredGroup[0].messages);
+    console.log("found group");
   });
 
   socket.on("newChatMessage", (data) => {
