@@ -25,7 +25,8 @@ socketIO.on("connection", (socket) => {
   console.log(`${socket.id} user is just connected`);
 
   socket.on("getAllGroups", () => {
-        const groupsWithoutMessages = chatgroups.map(group => {
+    // This part correctly prepares the data without messages
+    const groupsWithoutMessages = chatgroups.map(group => {
       const { messages, ...groupWithoutMessages } = group;
       return groupWithoutMessages;
     });
@@ -42,10 +43,18 @@ socketIO.on("connection", (socket) => {
     };
     chatgroups.unshift(newGroup);
 
-    // FIX 1: The creating user must join the specific Socket.IO room
-    socket.join(currentGroupName); 
+    // Prepare the public list data *after* updating chatgroups
+    const groupsWithoutMessages = chatgroups.map(group => {
+      const { messages, ...groupWithoutMessages } = group;
+      return groupWithoutMessages;
+    });
 
-    socket.emit("groupList", chatgroups); 
+    // CRITICAL FIX 1: You must join the *string* name of the room, not the array of groups
+    socket.join(newGroup.currentGroupName); 
+
+    // CRITICAL FIX 2: You intended to emit the list *without* messages, 
+    // but were sending the full 'chatgroups' array
+    socket.emit("groupList", groupsWithoutMessages); 
   });
 
   socket.on("findGroup", (id) => {
@@ -93,6 +102,8 @@ socketIO.on("connection", (socket) => {
 });
 
 app.get("/api", (req, res) => {
+  // This API route still exposes all data, including messages. 
+  // You might want to apply the same filtering logic here if you want consistency.
   res.json(chatgroups);
 });
 
