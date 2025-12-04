@@ -11,10 +11,12 @@ const socketIO = require("socket.io")(http, {
 
 const PORT = 4000;
 
+// Helper function remains the same
 function createUniqueId() {
   return Math.random().toString(20).substring(2, 10);
 }
 
+// Data structure: An array of group objects
 let chatgroups = [];
 
 app.use(express.urlencoded({ extended: true }));
@@ -24,47 +26,49 @@ app.use(cors());
 socketIO.on("connection", (socket) => {
   console.log(`${socket.id} user is just connected`);
 
-  socket.on("getAllGroups", () => {
-    // This part correctly prepares the data without messages
-    const groupsWithoutMessages = chatgroups.map(group => {
+  // Helper function to prepare data for public display (without messages)
+  const getGroupsWithoutMessages = () => {
+    return chatgroups.map(group => {
       const { messages, ...groupWithoutMessages } = group;
       return groupWithoutMessages;
     });
-    socket.emit("groupList", groupsWithoutMessages); 
-    console.log("sent all groups wihtout messages");
+  };
+
+  socket.on("getAllGroups", () => {
+    socket.emit("groupList", getGroupsWithoutMessages()); 
+    console.log("sent all groups without messages");
   });
 
   socket.on("createNewGroup", (currentGroupName) => {
     console.log(`Creating and Joining group: ${currentGroupName}`);
     const newGroup = {
       id: chatgroups.length + 1,
-      currentGroupName, // This name serves as the Socket.IO room name
+      currentGroupName: currentGroupName, // Use the provided name as the room identifier
       messages: [],
     };
     chatgroups.unshift(newGroup);
 
-    // Prepare the public list data *after* updating chatgroups
-    const groupsWithoutMessages = chatgroups.map(group => {
-      const { messages, ...groupWithoutMessages } = group;
-      return groupWithoutMessages;
-    });
-
-    // CRITICAL FIX 1: You must join the *string* name of the room, not the array of groups
+    // CRITICAL FIX 1: Join the specific Socket.IO room by its *string* name
     socket.join(newGroup.currentGroupName); 
 
-    // CRITICAL FIX 2: You intended to emit the list *without* messages, 
-    // but were sending the full 'chatgroups' array
-    socket.emit("groupList", groupsWithoutMessages); 
+    // Emit the updated list of groups to the client who created the group
+    socket.emit("groupList", getGroupsWithoutMessages()); 
   });
 
   socket.on("findGroup", (id) => {
-    const filteredGroups = chatgroups.filter((item) => item.id === id);
-    if (filteredGroups.length > 0) {
-        const group = filteredGroups[0];
-        // FIX 2: The joining user must join the specific Socket.IO room
-        socket.join(group.currentGroupName); 
-        socket.emit("foundGroup", group.messages);
-        console.log(`Socket ${socket.id} joined room: ${group.currentGroupName}`);
+    // Find the group object based on the numeric ID
+    const foundGroup = chatgroups.find((item) => item.id === id);
+    
+    if (foundGroup) {
+        // CRITICAL FIX 2: The joining user must join the specific Socket.IO room *string* name
+        socket.join(foundGroup.currentGroupName); 
+        
+        // You can emit back details of the specific group found (including messages this time, maybe?)
+        // Or just confirm they joined and send the general list. We'll stick to the original emit for now.
+        socket.emit("foundGroup", getGroupsWithoutMessages());
+        console.log(`Socket ${socket.id} joined room: ${foundGroup.currentGroupName}`);
+    } else {
+        console.log(`Group with ID ${id} not found.`);
     }
   });
 
@@ -86,27 +90,31 @@ socketIO.on("connection", (socket) => {
       time: `${timeData.hr}:${timeData.mins}:${timeData.secs}`,
     };
 
-    // Update the server's state first
+    // 1. Update the server's state first
     chatgroups[groupIndex].messages.push(newMessage);
     
-    // *** FIX 3a: Broadcast to every OTHER client in the room EXCEPT the sender ***
-    // `socket.broadcast` sends the message to all connected clients *except* the one who emitted the event.
+    // 2. Send the message back to the SENDER so their UI updates immediately
+    // If you want the sender to update their own UI instantly without waiting for a socket response, 
+    // you don't even need this line. But if you want confirmation via socket, this is one way.
+    socket.emit("groupMessage", newMessage); 
+
+    // CRITICAL FIX 3: Broadcast to every OTHER client in the room EXCEPT the sender
+    // `socket.broadcast` targets everyone *except* the initial sender.
     // `.to(roomName)` targets only the clients currently in that specific group's room.
     socket.broadcast.to(roomName).emit("groupMessage", newMessage);
   });
   
   socket.on("disconnect", () => {
       console.log(`${socket.id} user disconnected`);
-      // You may want to add logic here to remove users from rooms or general online user lists
+      // When a socket disconnects, Socket.IO automatically removes it from all rooms it joined.
   });
 });
 
 app.get("/api", (req, res) => {
-  // This API route still exposes all data, including messages. 
-  // You might want to apply the same filtering logic here if you want consistency.
+  // This API route still exposes all data, including messages, which is fine for debugging.
   res.json(chatgroups);
 });
 
 http.listen(PORT, () => {
-  console.log(`Server is listeing on ${PORT}`);
+  console.log(`Server is listening on ${PORT}`);
 });
