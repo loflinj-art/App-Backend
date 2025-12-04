@@ -56,7 +56,7 @@ socketIO.on("connection", (socket) => {
   });
 
   socket.on("newChatMessage", (data) => {
-    const { currentChatMesage, groupIdentifier, currentUser, timeData } = data;
+    const { positionData, groupIdentifier, currentUser, timeData } = data;
     
     // Find the group object using its numeric ID
     const groupIndex = chatgroups.findIndex((item) => item.id === groupIdentifier);
@@ -68,8 +68,8 @@ socketIO.on("connection", (socket) => {
 
     const newMessage = {
       id: createUniqueId(),
-      text: currentChatMesage,
-      currentUser,
+      text: `${positionData.latitude}, ${positionData.longitude}, ${positionData.speed}, ${positionData.heading}`, // Example message format
+      user: currentUser,
       time: `${timeData.hr}:${timeData.mins}:${timeData.secs}`,
     };
 
