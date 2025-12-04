@@ -52,7 +52,7 @@ socketIO.on("connection", (socket) => {
     socket.join(newGroup.currentGroupName); 
 
     // Emit the updated list of groups to the client who created the group
-    socket.emit("groupList", getGroupsWithoutMessages()); 
+    socketIO.emit("groupList", getGroupsWithoutMessages()); //send list to everyone (socketIO.emit)
   });
 
   socket.on("findGroup", (id) => {
