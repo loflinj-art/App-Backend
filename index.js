@@ -25,8 +25,12 @@ socketIO.on("connection", (socket) => {
   console.log(`${socket.id} user is just connected`);
 
   socket.on("getAllGroups", () => {
-    socket.emit("groupList", chatgroups);
-    console.log("sent all groups");
+        const groupsWithoutMessages = chatgroups.map(group => {
+      const { messages, ...groupWithoutMessages } = group;
+      return groupWithoutMessages;
+    });
+    socket.emit("groupList", groupsWithoutMessages); 
+    console.log("sent all groups wihtout messages");
   });
 
   socket.on("createNewGroup", (currentGroupName) => {
@@ -41,7 +45,7 @@ socketIO.on("connection", (socket) => {
     // FIX 1: The creating user must join the specific Socket.IO room
     socket.join(currentGroupName); 
 
-    socket.emit("groupList", chatgroups);
+    socket.emit("groupList", chatgroups); 
   });
 
   socket.on("findGroup", (id) => {
