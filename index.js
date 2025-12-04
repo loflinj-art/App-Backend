@@ -70,7 +70,7 @@ socketIO.on("connection", (socket) => {
       id: createUniqueId(),
       text: currentChatMesage,
       currentUser,
-      time: `${timeData.hr}:${timeData.mins}`,
+      time: `${timeData.hr}:${timeData.mins}:${timeData.secs}`,
     };
 
     // *** FIX 3: Broadcast to everyone in the room using the main 'socketIO' instance ***
