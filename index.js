@@ -96,7 +96,7 @@ socketIO.on("connection", (socket) => {
     // 2. Send the message back to the SENDER so their UI updates immediately
     // If you want the sender to update their own UI instantly without waiting for a socket response, 
     // you don't even need this line. But if you want confirmation via socket, this is one way.
-    socket.emit("groupMessage", newMessage); 
+    //socket.emit("groupMessage", newMessage); 
 
     // CRITICAL FIX 3: Broadcast to every OTHER client in the room EXCEPT the sender
     // `socket.broadcast` targets everyone *except* the initial sender.
