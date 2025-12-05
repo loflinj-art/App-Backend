@@ -54,7 +54,7 @@ socketIO.on("connection", (socket) => {
     socketIO.emit("flightList", getFlightsWithoutDatas()); //send list to everyone (socketIO.emit)
   });
 
-  socket.on("findFlight", (id) => {
+  socket.on("joinFlight", (id) => {
     // Find the flight object based on the numeric ID
     const joinedFlight = chatflights.find((item) => item.id === id);
     
