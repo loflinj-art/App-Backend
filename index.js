@@ -16,8 +16,8 @@ function createUniqueId() {
   return Math.random().toString(20).substring(2, 10);
 }
 
-// Data structure: An array of group objects
-let chatgroups = [];
+// Data structure: An array of flight objects
+let chatflights = [];
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -27,61 +27,61 @@ socketIO.on("connection", (socket) => {
   console.log(`${socket.id} user is just connected`);
 
   // Helper function to prepare data for public display (without messages)
-  const getGroupsWithoutMessages = () => {
-    return chatgroups.map(group => {
-      const { messages, ...groupWithoutMessages } = group;
-      return groupWithoutMessages;
+  const getFlightsWithoutMessages = () => {
+    return chatflights.map(flight => {
+      const { messages, ...flightWithoutMessages } = flight;
+      return flightWithoutMessages;
     });
   };
 
-  socket.on("getAllGroups", () => {
-    socket.emit("groupList", getGroupsWithoutMessages()); 
-    console.log("sent all groups without messages");
+  socket.on("getAllFlights", () => {
+    socket.emit("flightList", getFlightsWithoutMessages()); 
+    console.log("sent all flights without messages");
   });
 
-  socket.on("createNewGroup", (currentGroupName) => {
-    console.log(`Creating and Joining group: ${currentGroupName}`);
-    const newGroup = {
-      id: chatgroups.length + 1,
-      currentGroupName: currentGroupName, // Use the provided name as the room identifier
+  socket.on("createNewFlight", (currentFlightName) => {
+    console.log(`Creating and Joining flight: ${currentFlightName}`);
+    const newFlight = {
+      id: chatflights.length + 1,
+      currentFlightName: currentFlightName, // Use the provided name as the room identifier
       messages: [],
     };
-    chatgroups.unshift(newGroup);
+    chatflights.unshift(newFlight);
 
     // CRITICAL FIX 1: Join the specific Socket.IO room by its *string* name
-    socket.join(newGroup.currentGroupName); 
+    socket.join(newFlight.currentFlightName); 
 
-    // Emit the updated list of groups to the client who created the group
-    socketIO.emit("groupList", getGroupsWithoutMessages()); //send list to everyone (socketIO.emit)
+    // Emit the updated list of flights to the client who created the flight
+    socketIO.emit("flightList", getFlightsWithoutMessages()); //send list to everyone (socketIO.emit)
   });
 
-  socket.on("findGroup", (id) => {
-    // Find the group object based on the numeric ID
-    const foundGroup = chatgroups.find((item) => item.id === id);
+  socket.on("findFlight", (id) => {
+    // Find the flight object based on the numeric ID
+    const joinedFlight = chatflights.find((item) => item.id === id);
     
-    if (foundGroup) {
+    if (joinedFlight) {
         // CRITICAL FIX 2: The joining user must join the specific Socket.IO room *string* name
-        socket.join(foundGroup.currentGroupName); 
+        socket.join(joinedFlight.currentFlightName); 
         
-        // You can emit back details of the specific group found (including messages this time, maybe?)
+        // You can emit back details of the specific flight found (including messages this time, maybe?)
         // Or just confirm they joined and send the general list. We'll stick to the original emit for now.
-        socket.emit("foundGroup", getGroupsWithoutMessages());
-        console.log(`Socket ${socket.id} joined room: ${foundGroup.currentGroupName}`);
+        socket.emit("joinedFlight", getFlightsWithoutMessages());
+        console.log(`Socket ${socket.id} joined room: ${joinedFlight.currentFlightName}`);
     } else {
-        console.log(`Group with ID ${id} not found.`);
+        console.log(`Flight with ID ${id} not found.`);
     }
   });
 
-  socket.on("newChatMessage", (data) => {
-    const { positionData, groupIdentifier, currentUser, timeData } = data;
+  socket.on("newFlightData", (data) => {
+    const { positionData, flightIdentifier, currentUser, timeData } = data;
     
-    // Find the group object using its numeric ID
-    const groupIndex = chatgroups.findIndex((item) => item.id === groupIdentifier);
+    // Find the flight object using its numeric ID
+    const flightIndex = chatflights.findIndex((item) => item.id === flightIdentifier);
 
-    if (groupIndex === -1) return; // Exit if group not found
+    if (flightIndex === -1) return; // Exit if flight not found
     
-    const group = chatgroups[groupIndex];
-    const roomName = group.currentGroupName; // Get the string name of the room for broadcasting
+    const flight = chatflights[flightIndex];
+    const roomName = flight.currentFlightName; // Get the string name of the room for broadcasting
 
     const newMessage = {
       id: createUniqueId(),
@@ -91,17 +91,17 @@ socketIO.on("connection", (socket) => {
     };
 
     // 1. Update the server's state first
-    chatgroups[groupIndex].messages.push(newMessage);
+    chatflights[flightIndex].messages.push(newMessage);
     
     // 2. Send the message back to the SENDER so their UI updates immediately
     // If you want the sender to update their own UI instantly without waiting for a socket response, 
     // you don't even need this line. But if you want confirmation via socket, this is one way.
-    //socket.emit("groupMessage", newMessage); 
+    //socket.emit("flightData", newMessage); 
 
     // CRITICAL FIX 3: Broadcast to every OTHER client in the room EXCEPT the sender
     // `socket.broadcast` targets everyone *except* the initial sender.
-    // `.to(roomName)` targets only the clients currently in that specific group's room.
-    socket.broadcast.to(roomName).emit("groupMessage", newMessage);
+    // `.to(roomName)` targets only the clients currently in that specific flight's room.
+    socket.broadcast.to(roomName).emit("flightData", newMessage);
   });
   
   socket.on("disconnect", () => {
@@ -112,7 +112,7 @@ socketIO.on("connection", (socket) => {
 
 app.get("/api", (req, res) => {
   // This API route still exposes all data, including messages, which is fine for debugging.
-  res.json(chatgroups);
+  res.json(chatflights);
 });
 
 http.listen(PORT, () => {
