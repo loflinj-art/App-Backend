@@ -26,17 +26,17 @@ app.use(cors());
 socketIO.on("connection", (socket) => {
   console.log(`${socket.id} user is just connected`);
 
-  // Helper function to prepare data for public display (without messages)
-  const getFlightsWithoutMessages = () => {
+  // Helper function to prepare data for public display (without datas)
+  const getFlightsWithoutDatas = () => {
     return chatflights.map(flight => {
-      const { messages, ...flightWithoutMessages } = flight;
-      return flightWithoutMessages;
+      const { datas, ...flightWithoutDatas } = flight;
+      return flightWithoutDatas;
     });
   };
 
   socket.on("getAllFlights", () => {
-    socket.emit("flightList", getFlightsWithoutMessages()); 
-    console.log("sent all flights without messages");
+    socket.emit("flightList", getFlightsWithoutDatas()); 
+    console.log("sent all flights without datas");
   });
 
   socket.on("createNewFlight", (currentFlightName) => {
@@ -44,7 +44,7 @@ socketIO.on("connection", (socket) => {
     const newFlight = {
       id: chatflights.length + 1,
       currentFlightName: currentFlightName, // Use the provided name as the room identifier
-      messages: [],
+      datas: [],
     };
     chatflights.unshift(newFlight);
 
@@ -52,7 +52,7 @@ socketIO.on("connection", (socket) => {
     socket.join(newFlight.currentFlightName); 
 
     // Emit the updated list of flights to the client who created the flight
-    socketIO.emit("flightList", getFlightsWithoutMessages()); //send list to everyone (socketIO.emit)
+    socketIO.emit("flightList", getFlightsWithoutDatas()); //send list to everyone (socketIO.emit)
   });
 
   socket.on("findFlight", (id) => {
@@ -63,9 +63,9 @@ socketIO.on("connection", (socket) => {
         // CRITICAL FIX 2: The joining user must join the specific Socket.IO room *string* name
         socket.join(joinedFlight.currentFlightName); 
         
-        // You can emit back details of the specific flight found (including messages this time, maybe?)
+        // You can emit back details of the specific flight found (including datas this time, maybe?)
         // Or just confirm they joined and send the general list. We'll stick to the original emit for now.
-        socket.emit("joinedFlight", getFlightsWithoutMessages());
+        socket.emit("joinedFlight", getFlightsWithoutDatas());
         console.log(`Socket ${socket.id} joined room: ${joinedFlight.currentFlightName}`);
     } else {
         console.log(`Flight with ID ${id} not found.`);
@@ -83,25 +83,25 @@ socketIO.on("connection", (socket) => {
     const flight = chatflights[flightIndex];
     const roomName = flight.currentFlightName; // Get the string name of the room for broadcasting
 
-    const newMessage = {
+    const newData = {
       id: createUniqueId(),
-      text: `${positionData.latitude}, ${positionData.longitude}, ${positionData.speed}, ${positionData.heading}`, // Example message format
+      text: `${positionData.latitude}, ${positionData.longitude}, ${positionData.speed}, ${positionData.heading}`, // Example data format
       user: currentUser,
       time: `${timeData.hr}:${timeData.mins}:${timeData.secs}`,
     };
 
     // 1. Update the server's state first
-    chatflights[flightIndex].messages.push(newMessage);
+    chatflights[flightIndex].datas.push(newData);
     
-    // 2. Send the message back to the SENDER so their UI updates immediately
+    // 2. Send the data back to the SENDER so their UI updates immediately
     // If you want the sender to update their own UI instantly without waiting for a socket response, 
     // you don't even need this line. But if you want confirmation via socket, this is one way.
-    //socket.emit("flightData", newMessage); 
+    //socket.emit("flightData", newData); 
 
     // CRITICAL FIX 3: Broadcast to every OTHER client in the room EXCEPT the sender
     // `socket.broadcast` targets everyone *except* the initial sender.
     // `.to(roomName)` targets only the clients currently in that specific flight's room.
-    socket.broadcast.to(roomName).emit("flightData", newMessage);
+    socket.broadcast.to(roomName).emit("flightData", newData);
   });
   
   socket.on("disconnect", () => {
@@ -111,7 +111,7 @@ socketIO.on("connection", (socket) => {
 });
 
 app.get("/api", (req, res) => {
-  // This API route still exposes all data, including messages, which is fine for debugging.
+  // This API route still exposes all data, including datas, which is fine for debugging.
   res.json(chatflights);
 });
 
