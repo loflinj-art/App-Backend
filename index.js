@@ -2,7 +2,6 @@ const express = require("express");
 const app = express();
 const http = require("http").Server(app);
 const cors = require("cors");
-// Initialize socket.io with the http server and CORS options
 const socketIO = require("socket.io")(http, {
   cors: {
     origin: "*", // update as necessary to restrict access
@@ -11,7 +10,7 @@ const socketIO = require("socket.io")(http, {
 
 const PORT = 4000;
 
-// Helper function remains the same
+
 function createUniqueId() {
   return Math.random().toString(20).substring(2, 10);
 }
@@ -48,7 +47,7 @@ socketIO.on("connection", (socket) => {
     };
     chatflights.unshift(newFlight);
 
-    // CRITICAL FIX 1: Join the specific Socket.IO room by its *string* name
+    // Join the specific Socket.IO room by its *string* name
     socket.join(newFlight.currentFlightName); 
 
     // Emit the updated list of flights to the client who created the flight
@@ -72,36 +71,51 @@ socketIO.on("connection", (socket) => {
     }
   });
 
+// *** MODIFIED HANDLER BELOW (Ensures existence AND user join status) ***
   socket.on("newFlightData", (data) => {
-    const { positionData, flightIdentifier, currentUser, timeData } = data;
+   const { positionData, flightName, currentUser, currentUserRole, timeData } = data;
     
-    // Find the flight object using its numeric ID
-    const flightIndex = chatflights.findIndex((item) => item.id === flightIdentifier);
+    let flightIndex = chatflights.findIndex((item) => item.currentFlightName === flightName);
 
-    if (flightIndex === -1) return; // Exit if flight not found
-    
-    const flight = chatflights[flightIndex];
-    const roomName = flight.currentFlightName; // Get the string name of the room for broadcasting
+    // If the flight does NOT exist, create it automatically
+    if (flightIndex === -1) {
+        console.log(`Flight ${flightName} not found. Creating a new one automatically.`);
+        const newFlight = {
+            id: chatflights.length + 1,
+            currentFlightName: flightName,
+            datas: [],
+        };
+        chatflights.unshift(newFlight);
+        flightIndex = 0;
 
+        // Alert all other connected clients that a new flight appeared in the list
+        socketIO.emit("flightList", getFlightsWithoutDatas());
+    }
+
+    // THIS IS THE KEY CHANGE: Ensure the sender is ALWAYS in the room before broadcasting
+    if (!socket.rooms.has(flightName)) {
+         socket.join(flightName);
+         console.log(`Socket ${socket.id} automatically joined room: ${flightName} before sending data.`);
+    }
+
+    // Now proceed with adding the data to the existing (or newly created) flight
     const newData = {
       id: createUniqueId(),
-      text: `${positionData.latitude}, ${positionData.longitude}, ${positionData.speed}, ${positionData.heading}`, // Example data format
+      text: `${positionData.latitude}, ${positionData.longitude}, ${positionData.speed}, ${positionData.heading}`,
       user: currentUser,
+      role: currentUserRole,
       time: `${timeData.hr}:${timeData.mins}:${timeData.secs}`,
     };
 
-    // 1. Update the server's state first
     chatflights[flightIndex].datas.push(newData);
     
-    // 2. Send the data back to the SENDER so their UI updates immediately
-    // If you want the sender to update their own UI instantly without waiting for a socket response, 
-    // you don't even need this line. But if you want confirmation via socket, this is one way.
-    //socket.emit("flightData", newData); 
+    // The sender receives the data immediately because they are using `socket.broadcast` 
+    // which sends to everyone *except* the sender. If you also want the sender's UI 
+    // to update via socket confirmation (not just locally on the client), you'd add:
+    // socket.emit("flightData", newData); 
 
-    // CRITICAL FIX 3: Broadcast to every OTHER client in the room EXCEPT the sender
-    // `socket.broadcast` targets everyone *except* the initial sender.
-    // `.to(roomName)` targets only the clients currently in that specific flight's room.
-    socket.broadcast.to(roomName).emit("flightData", newData);
+    // Broadcast to every OTHER client in the room
+    socket.broadcast.to(flightName).emit("flightData", newData);
   });
   
   socket.on("disconnect", () => {
