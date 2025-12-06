@@ -101,7 +101,7 @@ socketIO.on("connection", (socket) => {
     // Now proceed with adding the data to the existing (or newly created) flight
     const newData = {
       id: createUniqueId(),
-      text: `${positionData.latitude}, ${positionData.longitude}, ${positionData.speed}, ${positionData.heading}`,
+      text: `${positionData.latitude}, ${positionData.longitude}, ${positionData.speed}, ${positionData.heading}, ${positionData.altitude}`,
       user: currentUser,
       role: currentUserRole,
       time: `${timeData.hr}:${timeData.mins}:${timeData.secs}`,
